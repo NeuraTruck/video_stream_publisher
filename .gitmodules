@@ -1,0 +1,7 @@
+[submodule "image_transport_tutorials"]
+	path = image_transport_tutorials
+	url = https://github.com/ros-perception/image_transport_tutorials.git
+	branch = humble
+[submodule "rosbridge_suite"]
+	path = rosbridge_suite
+	url = https://github.com/RobotWebTools/rosbridge_suite.git
