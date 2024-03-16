@@ -2,9 +2,11 @@
 <html>
 <head>
     <title>ROS Image Viewer</title>
+    <meta charset="utf-8" />
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/roslib@1/build/roslib.min.js"></script>
 </head>
 <body>
+    <p><img id="yourImageElementId" src="" alt="Image viewer" /></p>
     <script type="text/javascript">
         var ros = new ROSLIB.Ros({
             url: 'ws://localhost:9090'
@@ -28,7 +30,6 @@
             imgElement.src = 'data:image/jpeg;base64,' + message.data; // 画像データを設定
         });
     </script>
-    <img id="yourImageElementId" src="" alt="Image viewer" />
 </body>
 </html>
 
