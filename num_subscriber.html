@@ -6,7 +6,6 @@
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/roslib@1/build/roslib.min.js"></script>
 </head>
 <body>
-    <p><img id="yourImageElementId" src="" alt="Image viewer" /></p>
     <br/>
     <p>Connection: <span id="status" style="font-weight: bold;">N/A</span></p>
     <script type="text/javascript">
@@ -21,17 +20,15 @@
 
         var listener = new ROSLIB.Topic({
             ros: ros,
-            name: '/camera/image/compressed',
-            messageType: 'sensor_msgs/msg/CompressedImage'
+            name: '/cmd_vel',
+            messageType: 'geometry_msgs/msg/Twist'
         });
 
-        listener.subscribe(function(message) {
-            // ここで画像データを受け取り、処理する
-            console.log('Received image data');
-            // 画像データを表示する処理
-            var data = 'data:image/jpeg;base64,' + message.data; // 画像データを設定
-            document.getElementById('yourImageElementId').setAttribute('src', data); // 画像を表示する要素を取得
-        });
+listener.subscribe(function(message) {
+    console.log('Linear Velocity: ' + message.twist.linear.x + ', Angular Velocity: ' + message.twist.angular.z);
+    document.getElementById('linearVelocity').textContent = 'Linear Velocity: ' + message.twist.linear.x;
+    document.getElementById('angularVelocity').textContent = 'Angular Velocity: ' + message.twist.angular.z;
+});
     </script>
 </body>
 </html>

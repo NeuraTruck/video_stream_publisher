@@ -8,9 +8,13 @@ cd ~/ros2_ws/src
 git clone https://github.com/tstaisyu/video_stream_publisher.git
 cd ..
 rosdep install --from-paths src --ignore-src -r -y
+sudo apt-get install ros-${ROS_DISTRO}-image-transport-plugins
 colcon build
 source install/setup.bash
 ```
+参考：
+https://zenn.dev/katsuitoh/articles/3585925a819b7d
+https://index.ros.org/r/v4l2_camera/
 
 Terminal 1
 ```bash
