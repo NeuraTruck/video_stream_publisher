@@ -21,8 +21,8 @@
 
         var listener = new ROSLIB.Topic({
             ros: ros,
-            name: '/camera/image',
-            messageType: 'sensor_msgs/msg/CompressedImage'
+            name: '/camera/image_raw/compressed',
+            messageType: 'sensor_msgs/CompressedImage'
         });
 
         listener.subscribe(function(message) {
@@ -35,4 +35,3 @@
     </script>
 </body>
 </html>
-
