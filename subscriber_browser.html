@@ -1,71 +1,82 @@
-// Copyright 2021, Open Source Robotics Foundation, Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ROS Image Viewer</title>
+    <meta charset="utf-8" />
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/roslib@1/build/roslib.min.js"></script>
+</head>
+<body>
+    <h1>ROS Websocket Example</h1>
+    <p>Subscribing to topic: <code>/my_topic</code></p>
+    <p><code>/my_topic</code> messages received: <span id="messages" style="font-weight: bold;"></span></p>
+  
+    <div id="pad" style="width: 300px; height: 300px; background-color: #eee;">
+      <div id="handle" style="width: 50px; height: 50px; background-color: #303030; position: relative; left: 125px; top: 125px; border-radius: 50%;"></div>
+    </div>
+  
+    <script type="text/javascript">
+        var ros = new ROSLIB.Ros({
+            url: 'ws://192.168.11.6:9090'
+        });
 
-#include <sstream>
+        ros.on('connection', function() {
+            document.getElementById("status").innerHTML = "successful!";
+            console.log('Connected to websocket server.');
+        });
 
-#include "cv_bridge/cv_bridge.h"
-#include "image_transport/image_transport.hpp"
-#include "opencv2/core/mat.hpp"
-#include "opencv2/highgui.hpp"
-#include "opencv2/videoio.hpp"
-#include "rclcpp/rclcpp.hpp"
-#include "std_msgs/msg/header.hpp"
+        const cmdVel = new ROSLIB.Topic({
+        ros: ros,
+        name: '/cmd_vel',
+        messageType: 'geometry_msgs/Twist'
+        });
 
-int main(int argc, char ** argv)
-{
-  // Check if video source has been passed as a parameter
-  if (argv[1] == NULL) {
-    return 1;
-  }
+        const pad = document.getElementById('pad');
+        const handle = document.getElementById('handle');
 
-  rclcpp::init(argc, argv);
-  rclcpp::NodeOptions options;
-  rclcpp::Node::SharedPtr node = rclcpp::Node::make_shared("image_publisher", options);
-  image_transport::ImageTransport it(node);
-  image_transport::Publisher pub = it.advertise("camera/image", 1);
+        let twist = new ROSLIB.Message({
+          linear: { x: 0, y: 0, z: 0 },
+          angular: { x: 0, y: 0, z: 0 }
+        });
 
-  // Convert the command line parameter index for the video device to an integer
-  std::istringstream video_sourceCmd(argv[1]);
-  int video_source;
+        let padRect = pad.getBoundingClientRect();
 
-  // Check if it is indeed a number
-  if (!(video_sourceCmd >> video_source)) {
-    return 1;
-  }
+        handle.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          document.addEventListener('mousemove', moveHandle);
+          document.addEventListener('mouseup', stopHandle);
+        });
 
-  cv::VideoCapture cap(video_source);
-  // Check if video device can be opened with the given index
-  if (!cap.isOpened()) {
-    return 1;
-  }
-  cv::Mat frame;
-  std_msgs::msg::Header hdr;
-  sensor_msgs::msg::Image::SharedPtr msg;
+        function moveHandle(e) {
+          let x = e.clientX - padRect.left - handle.offsetWidth / 2;
+          let y = e.clientY - padRect.top - handle.offsetHeight / 2;
+          let r = (pad.offsetWidth - handle.offsetWidth) / 2;
+          let cx = r, cy = r;
 
-  rclcpp::WallRate loop_rate(5);
-  while (rclcpp::ok()) {
-    cap >> frame;
-    // Check if grabbed frame is actually full with some content
-    if (!frame.empty()) {
-      msg = cv_bridge::CvImage(hdr, "bgr8", frame).toImageMsg();
-      pub.publish(msg);
-      cv::waitKey(1);
-    }
+          let dist = Math.sqrt(Math.pow(x - cx, 2) + Math.pow(y - cy, 2));
+          if (dist > r) {
+            x = (x - cx) * r / dist + cx;
+            y = (y - cy) * r / dist + cy;
+          }
 
-    rclcpp::spin_some(node);
-    loop_rate.sleep();
-  }
+          handle.style.left = x + 'px';
+          handle.style.top = y + 'px';
 
-  return 0;
-}
+          let nx = ((x - cx) / r);
+          let ny = ((cy - y) / r);
+          twist.linear.x = parseFloat(ny.toFixed(3));
+          twist.angular.z = -parseFloat(nx.toFixed(3));
+          cmdVel.publish(twist);
+        }
+
+        function stopHandle(e) {
+          document.removeEventListener('mousemove', moveHandle);
+          document.removeEventListener('mouseup', stopHandle);
+          handle.style.left = '125px';
+          handle.style.top = '125px';
+          twist.linear.x = 0;
+          twist.angular.z = 0;
+          cmdVel.publish(twist);
+        }
+    </script>
+</body>
+</html>
