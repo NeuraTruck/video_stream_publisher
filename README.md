@@ -39,4 +39,19 @@ ros2 launch rosbridge_server rosbridge_websocket_launch.xml
 sudo apt install nodejs
 nodejs -v
 npm -v # もしなければ sudo apt install npm
+
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.35.3/install.sh | bash # nvmのインストール
+nvm node install # Node.jsのアップデート
+
+# React app作成
+sudo npm i -g create-react-app
+create-react-app ros2_data_pubsub_app
+cd ros2_data_pubsub_app
+npm start
+
+# ライブラリインストール
+npm install roslib
+npm install react-bootstrap bootstrap
+npm install --save chart.js react-chartjs-2
+npm install three @types/three @react-three/fiber
 ```
