@@ -25,3 +25,18 @@ ros2 launch rosbridge_server rosbridge_websocket_launch.xml
 
 ビデオストリームの確認
 sample_browser_subscriber.htmlをブラウザで開く
+
+# rosbridge_suiteとReact
+
+参考：https://zenn.dev/tasada038/articles/90530ccec33619
+
+* 必要な準備
+```bash
+sudo apt update
+sudo apt install -y ros-$ROS_DISTRO-rosbridge-suite
+ros2 launch rosbridge_server rosbridge_websocket_launch.xml
+
+sudo apt install nodejs
+nodejs -v
+npm -v # もしなければ sudo apt install npm
+```
