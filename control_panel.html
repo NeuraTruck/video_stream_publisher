@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Robot Control Panel</title>
+    <meta charset="utf-8" />
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/roslib@1/build/roslib.min.js"></script>
+    <style>
+        body {
+            text-align: center; /* 中央揃え */
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        #videoContainer {
+            max-width: 720px; /* 最大幅を720pxに設定 */
+            width: 98%; /* 幅を画面の98%に設定 */
+        }
+        #yourImageElementId {
+            max-width: 100%; /* 映像の幅をコンテナに合わせる */
+            height: auto; /* 高さを自動調整 */
+        }
+        .controlButton {
+            margin: 5px; /* ボタン間のマージン */
+            padding: 10px 20px; /* パディング */
+        }
+    </style>
+</head>
+<body>
+    <h1>Robot Control Panel</h1>
+    <div>
+        <button onclick="move('left')" class="controlButton">左回転</button>
+        <button onclick="move('forward')" class="controlButton">前進</button>
+        <button onclick="move('backward')" class="controlButton">後進</button>
+        <button onclick="move('right')" class="controlButton">右回転</button>
+        <button onclick="move('stop')" class="controlButton">停止</button>
+    </div>
+    <hr>
+    <hr>
+    <div id="videoContainer">
+        <img id="yourImageElementId" src="" alt="Image viewer" /></p>
+    </div>
+    <br/>
+    <p>Connection: <span id="status" style="font-weight: bold;">N/A</span></p>
+    <script type="text/javascript">
+        var ros = new ROSLIB.Ros({
+            url: 'ws://192.168.11.6:9090'
+        });
+
+        var cmdVel = new ROSLIB.Topic({
+            ros: ros,
+            name: '/cmd_vel',
+            messageType: 'geometry_msgs/Twist'
+        });
+
+        function move(direction) {
+            var twist = new ROSLIB.Message({
+                linear: { x: 0, y: 0, z: 0 },
+                angular: { x: 0, y: 0, z: 0 }
+            });
+
+            switch(direction) {
+                case 'left':
+                    twist.angular.z = -1;
+                    break;
+                case 'forward':
+                    twist.linear.x = 1;
+                    break;
+                case 'backward':
+                    twist.linear.x = -1;
+                    break;
+                case 'right':
+                    twist.angular.z = 1;
+                    break;
+                case 'stop':
+                    // Values are already set to 0
+                    break;
+            }
+
+            cmdVel.publish(twist);
+        }
+
+        ros.on('connection', function() {
+            document.getElementById("status").innerHTML = "successful!";
+            console.log('Connected to websocket server.');
+        });
+
+        var listener = new ROSLIB.Topic({
+            ros: ros,
+            name: '/camera/image/compressed',
+            messageType: 'sensor_msgs/msg/CompressedImage'
+        });
+
+        listener.subscribe(function(message) {
+            // ここで画像データを受け取り、処理する
+            console.log('Received image data');
+            // 画像データを表示する処理
+            var data = 'data:image/jpeg;base64,' + message.data; // 画像データを設定
+            document.getElementById('yourImageElementId').setAttribute('src', data); // 画像を表示する要素を取得
+        });
+    </script>
+</body>
+</html>
