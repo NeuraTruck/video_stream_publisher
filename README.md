@@ -3,6 +3,8 @@ git submodule add -b humble https://github.com/ros-perception/image_transport_tu
 git submodule add https://github.com/RobotWebTools/rosbridge_suite.git
 ```
 
+# How to setup
+
 ```bash
 cd ~/ros2_ws/src
 git clone https://github.com/tstaisyu/video_stream_publisher.git
@@ -15,6 +17,8 @@ source install/setup.bash
 参考：
 https://zenn.dev/katsuitoh/articles/3585925a819b7d
 https://index.ros.org/r/v4l2_camera/
+
+## Implementation
 
 Terminal 1
 ```bash
