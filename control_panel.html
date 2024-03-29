@@ -13,6 +13,33 @@
             flex-direction: column;
             align-items: center;
         }
+        #mapContainer {
+            position: relative;
+            z-index: 1;
+            max-width: 720px; /* 最大幅 */
+            width: 100%; /* 画面幅に応じてサイズ変更 */
+            margin: auto; /* 中央揃え */
+        }
+
+        @media (max-width: 720px) {
+            #mapContainer {
+                width: 98%; /* 画面幅が720px以下の場合は、幅を98%に設定 */
+            }
+        }
+
+        #robotImage {
+            position: absolute;
+            z-index: 2;
+            /* 画像の位置を調整 */
+            top: 50px; /* 例: マップ上の特定の位置に配置 */
+            left: 100px;
+        }
+
+        #yourMapElementId {
+            width: 100%; /* コンテナの幅に合わせて伸縮 */
+            height: auto;
+        }
+
         #videoContainer {
             max-width: 720px; /* 最大幅を720pxに設定 */
             width: 98%; /* 幅を画面の98%に設定 */
@@ -29,6 +56,7 @@
 </head>
 <body>
     <h1>Robot Control Panel</h1>
+    <p>Connection: <span id="status" style="font-weight: bold;">N/A</span></p>
     <div>
         <button onclick="move('left')" class="controlButton">左回転</button>
         <button onclick="move('forward')" class="controlButton">前進</button>
@@ -37,12 +65,21 @@
         <button onclick="move('stop')" class="controlButton">停止</button>
     </div>
     <hr>
+    <div>
+        <button id="startButton">音声制御 On</button>
+        <button id="stopButton" disabled>音声制御 Off</button>
+        <br><br>
+        <div>認識結果: <span id="resultText"></span></div>
+    </div>
+    <hr>
+    <div id="mapContainer">
+        <canvas id="yourMapElementId" src="" alt="Map viewer">
+        <img id="robotImage" src="robo.png" alt="Robot" style="position: absolute;"/>
+    </div>
     <hr>
     <div id="videoContainer">
-        <img id="yourImageElementId" src="" alt="Image viewer" /></p>
+        <img id="yourImageElementId" src="" alt="Image viewer" />
     </div>
-    <br/>
-    <p>Connection: <span id="status" style="font-weight: bold;">N/A</span></p>
     <script type="text/javascript">
         var ros = new ROSLIB.Ros({
             url: 'ws://192.168.11.6:9090'
@@ -62,16 +99,16 @@
 
             switch(direction) {
                 case 'left':
-                    twist.angular.z = -1;
+                    twist.angular.z = 0.5;
                     break;
                 case 'forward':
-                    twist.linear.x = 1;
+                    twist.linear.x = 0.3;
                     break;
                 case 'backward':
-                    twist.linear.x = -1;
+                    twist.linear.x = -0.3;
                     break;
                 case 'right':
-                    twist.angular.z = 1;
+                    twist.angular.z = -0.5;
                     break;
                 case 'stop':
                     // Values are already set to 0
@@ -81,14 +118,159 @@
             cmdVel.publish(twist);
         }
 
+        var recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        recognition.lang = 'ja-JP';
+        recognition.interimResults = false;
+        recognition.continuous = true;
+
+        document.getElementById('startButton').onclick = function() {
+            recognition.start();
+            this.disabled = true;
+            document.getElementById('stopButton').disabled = false;
+        };
+
+        document.getElementById('stopButton').onclick = function() {
+            recognition.stop();
+            this.disabled = true;
+            document.getElementById('startButton').disabled = false;
+        };
+
+        recognition.onresult = function(event) {
+            var last = event.results.length - 1;
+            var command = event.results[last][0].transcript.trim();
+            document.getElementById('resultText').textContent = command;
+
+            var twist = new ROSLIB.Message({
+                linear: { x: 0, y: 0, z: 0 },
+                angular: { x: 0, y: 0, z: 0 }
+            });
+
+            switch(command) {
+                case '左':
+                    twist.angular.z = -1;
+                    break;
+                case 'ゴー':
+                    twist.linear.x = 1;
+                    break;
+                case 'バック':
+                    twist.linear.x = -1;
+                    break;
+                case '右':
+                    twist.angular.z = 1;
+                    break;
+                case 'ストップ':
+                    // Values are already set to 0
+                    break;
+            }
+            cmdVel.publish(twist);
+        };
+
+        recognition.onerror = function(event) {
+            console.log('Speech recognition error detected: ' + event.error);
+        };
+
+        recognition.onend = function() {
+            console.log('Speech recognition service disconnected');
+        };
+                
         ros.on('connection', function() {
             document.getElementById("status").innerHTML = "successful!";
             console.log('Connected to websocket server.');
         });
 
+        var map = new ROSLIB.Topic({
+            ros: ros,
+            name: '/map',
+            messageType: 'nav_msgs/msg/OccupancyGrid'
+        });
+
+        map.subscribe(function(message) {
+            // ここで2Dマップデータを受け取り、処理する
+            console.log('Received map data');
+            // 2Dマップデータを表示する処理
+            var canvas = document.getElementById('yourMapElementId');
+            if (!canvas) {
+                canvas = document.createElement('canvas');
+                canvas.id = 'yourMapElementId';
+                document.getElementById('mapContainer').appendChild(canvas);
+            }
+            var ctx = canvas.getContext('2d');
+
+            // canvasのサイズと描画スケールの設定
+            canvas.width = message.info.width;
+            canvas.height = message.info.height;
+
+            var imageData = ctx.createImageData(canvas.width, canvas.height);
+            var data = imageData.data;
+
+            // OccupancyGridデータを画像データに変換
+            for (var i = 0; i < message.info.width * message.info.height; i++) {
+                var value = message.data[i]; // OccupancyGridデータは-1（未知）から100（完全に占有）までの値を取る
+                var color = value < 0 ? 128 : 255 - (value * 255 / 100); // 未知をグレー、それ以外を白黒で表現
+                data[4*i] = color;    // R
+                data[4*i+1] = color;  // G
+                data[4*i+2] = color;  // B
+                data[4*i+3] = 255;    // A
+            }
+
+            // 画像データをCanvasに描画
+            ctx.putImageData(imageData, 0, 0);
+
+        });
+
+        var tfClient = new ROSLIB.TFClient({
+            ros : ros,
+            fixedFrame : '/map',
+            angularThres : 0.01,
+            transThres : 0.01,
+            rate : 10.0
+        });
+
+        tfClient.subscribe('/base_link', function(tf) {
+          // ロボットの位置(tf.translation)と向き(tf.rotation)を取得
+          var x = tf.translation.x;
+          var y = tf.translation.y;
+          var rotation = getRotationFromQuaternion(tf.rotation);
+
+          // ロボットの位置と向きに基づいてCanvas上に描画する処理を記述
+          updateRobotPositionAndOrientation(x, y, rotation);
+        });
+
+        function getRotationFromQuaternion(quaternion) {
+            var w = quaternion.w;
+            var x = quaternion.x;
+            var y = quaternion.y;
+            var z = quaternion.z;
+
+            // Z軸周りの回転角度をラジアンで計算
+            var angleRadians = 2 * Math.atan2(y, w);
+            // ラジアンを度数法に変換
+            var angleDegrees = angleRadians * (180 / Math.PI);
+
+            return angleDegrees;
+        }
+
+
+        function updateRobotPositionAndOrientation(x, y, theta) {
+            var robotImg = document.getElementById("robotImage");
+            var canvas = document.getElementById("mapCanvas");
+
+           // マップ上のロボットの位置を計算（ここでは例として単純化しています）
+           var posX = x + canvas.offsetLeft;
+           var posY = y + canvas.offsetTop;
+
+            // ロボット画像の位置を更新
+            robotImg.style.left = posX + 'px';
+            robotImg.style.top = posY + 'px';
+
+            // ロボット画像の回転を更新（回転の中心を画像の中心に設定）
+            robotImg.style.transform = 'rotate(' + theta + 'deg)';
+        }
+
+
         var listener = new ROSLIB.Topic({
             ros: ros,
-            name: '/camera/image/compressed',
+            name: '/camera/image_raw/compressed',
             messageType: 'sensor_msgs/msg/CompressedImage'
         });
 
