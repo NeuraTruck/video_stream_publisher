@@ -12,8 +12,9 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            background-color: #ffe0bd; /* 肌色っぽい背景色 */
         }
-        #mapContainer {
+        #mapContainer, #videoContainer {
             position: relative;
             z-index: 1;
             max-width: 720px; /* 最大幅 */
@@ -35,7 +36,7 @@
             left: 100px;
         }
 
-        #yourMapElementId {
+        #yourMapElementId, #yourImageElementId {
             width: 100%; /* コンテナの幅に合わせて伸縮 */
             height: auto;
         }
@@ -44,13 +45,24 @@
             max-width: 720px; /* 最大幅を720pxに設定 */
             width: 98%; /* 幅を画面の98%に設定 */
         }
-        #yourImageElementId {
-            max-width: 100%; /* 映像の幅をコンテナに合わせる */
-            height: auto; /* 高さを自動調整 */
-        }
         .controlButton {
             margin: 5px; /* ボタン間のマージン */
             padding: 10px 20px; /* パディング */
+            background-color: #d4ffec; /* 明るい色 */
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .controlButton:hover {
+            background-color: #beffe2; /* ホバー時の色 */
+        }
+        #startButton, #stopButton {
+            background-color: #ceefff; /* 明るい青色 */
+        }
+        #startButton:hover, #stopButton:hover {
+            background-color: #b2e4fb; /* ホバー時の青色 */
         }
     </style>
 </head>
