@@ -48,7 +48,7 @@
         .controlButton {
             margin: 5px; /* ボタン間のマージン */
             padding: 10px 20px; /* パディング */
-            background-color: #d4ffec; /* 明るい色 */
+            background-color: #fcd5c8; /* 明るい色 */
             border: none;
             border-radius: 5px;
             font-size: 16px;
@@ -56,13 +56,13 @@
             transition: background-color 0.3s;
         }
         .controlButton:hover {
-            background-color: #beffe2; /* ホバー時の色 */
+            background-color: #f9e0c1; /* ホバー時の色 */
         }
         #startButton, #stopButton {
-            background-color: #ceefff; /* 明るい青色 */
+            background-color: #ffe4c6; /* 明るい青色 */
         }
         #startButton:hover, #stopButton:hover {
-            background-color: #b2e4fb; /* ホバー時の青色 */
+            background-color: #ffe0c7; /* ホバー時の青色 */
         }
     </style>
 </head>
@@ -75,6 +75,8 @@
         <button onclick="move('backward')" class="controlButton">後進</button>
         <button onclick="move('right')" class="controlButton">右回転</button>
         <button onclick="move('stop')" class="controlButton">停止</button>
+        <button onclick="adjustSpeed(1.1)" class="controlButton">加速</button>
+        <button onclick="adjustSpeed(0.9)" class="controlButton">減速</button>
     </div>
     <hr>
     <div>
@@ -84,17 +86,34 @@
         <div>認識結果: <span id="resultText"></span></div>
     </div>
     <hr>
+    <!--
     <div id="mapContainer">
         <canvas id="yourMapElementId" src="" alt="Map viewer">
         <img id="robotImage" src="robo.png" alt="Robot" style="position: absolute;"/>
     </div>
     <hr>
+-->
     <div id="videoContainer">
         <img id="yourImageElementId" src="" alt="Image viewer" />
     </div>
     <script type="text/javascript">
+
+    var currentDirection = ''; // 現在の方向を保持する変数    
+    var currentSpeedMultiplier = 1; // 現在の速度倍率
+    var maxSpeed = 6; // 最大速度
+    var minSpeed = 0.1; // 最小速度
+
+    function adjustSpeed(multiplier) {
+            currentSpeedMultiplier *= multiplier;
+            currentSpeedMultiplier = Math.max(0.1, Math.min(maxSpeed, currentSpeedMultiplier));
+            console.log('Current Speed Multiplier:', currentSpeedMultiplier);
+            if (currentDirection !== '') {
+                move(currentDirection); // 加速または減速後に同じ方向への移動をトリガー
+            }
+        }
+
         var ros = new ROSLIB.Ros({
-            url: 'ws://192.168.11.5:9090'
+            url: 'ws://192.168.2.40:9090'
         });
 
         var cmdVel = new ROSLIB.Topic({
@@ -109,21 +128,25 @@
                 angular: { x: 0, y: 0, z: 0 }
             });
 
+            currentDirection = direction; // 現在の方向を更新
+
             switch(direction) {
                 case 'left':
-                    twist.angular.z = 0.5;
+                    twist.angular.z = 0.5 * currentSpeedMultiplier;
                     break;
                 case 'forward':
-                    twist.linear.x = 0.3;
+                    twist.linear.x = 0.2 * currentSpeedMultiplier;
                     break;
                 case 'backward':
-                    twist.linear.x = -0.3;
+                    twist.linear.x = -0.2 * currentSpeedMultiplier;
                     break;
                 case 'right':
-                    twist.angular.z = -0.5;
+                    twist.angular.z = -0.5 * currentSpeedMultiplier;
                     break;
                 case 'stop':
                     // Values are already set to 0
+                    currentSpeedMultiplier = 1;
+                    currentDirection = '';
                     break;
             }
 
@@ -158,20 +181,21 @@
             });
 
             switch(command) {
-                case '左':
-                    twist.angular.z = -1;
+                case '左', 'ひだり', '左向け':
+                    twist.angular.z = 0.7 * currentSpeedMultiplier;
                     break;
-                case 'ゴー':
-                    twist.linear.x = 1;
+                case 'go', 'ゴー', '行け', 'いけ', 'すすめ', '進め':
+                    twist.linear.x = 0.3 * currentSpeedMultiplier;
                     break;
-                case 'バック':
-                    twist.linear.x = -1;
+                case 'バック', 'back', 'buck', 'さがれ', '下がれ':
+                    twist.linear.x = -0.3 * currentSpeedMultiplier;
                     break;
-                case '右':
-                    twist.angular.z = 1;
+                case '右', 'みぎ', '右向け':
+                    twist.angular.z = -0.7 * currentSpeedMultiplier;
                     break;
-                case 'ストップ':
+                case 'stop', 'とまれ', '止まれ', 'ストップ':
                     // Values are already set to 0
+                    currentSpeedMultiplier = 1;
                     break;
             }
             cmdVel.publish(twist);
