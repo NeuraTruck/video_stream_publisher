@@ -114,7 +114,7 @@
         }
 
         var ros = new ROSLIB.Ros({
-            url: 'ws://192.168.11.5:9090'
+            url: 'ws://10.0.0.5:9090'
         });
 
         var cmdVel = new ROSLIB.Topic({
@@ -133,16 +133,16 @@
 
             switch(direction) {
                 case 'left':
-                    twist.angular.z = 0.9;
+                    twist.angular.z = 0.7;
                     break;
                 case 'forward':
                     twist.linear.x = 0.5;
                     break;
                 case 'backward':
-                    twist.linear.x = -0.4;
+                    twist.linear.x = -0.5;
                     break;
                 case 'right':
-                    twist.angular.z = -0.9;
+                    twist.angular.z = -0.7;
                     break;
                 case 'stop':
                     // Values are already set to 0
