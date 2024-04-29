@@ -86,6 +86,9 @@
         <br><br>
         <div>認識結果: <span id="resultText"></span></div>
     </div>
+    <div>
+        <button id="audioToggle" onclick="toggleAudio()">音声出力オン/オフ</button>
+    </div>
     <hr>
     <!--
     <div id="mapContainer">
@@ -103,221 +106,239 @@
     var currentSpeedMultiplier = 1; // 現在の速度倍率
     var maxSpeed = 6; // 最大速度
     var minSpeed = 0.1; // 最小速度
+    var audioEnabled = false; // 音声出力の状態を保持する変数
 
     function adjustSpeed(multiplier) {
-            currentSpeedMultiplier *= multiplier;
-            currentSpeedMultiplier = Math.max(0.1, Math.min(maxSpeed, currentSpeedMultiplier));
-            console.log('Current Speed Multiplier:', currentSpeedMultiplier);
-            if (currentDirection !== '') {
-                move(currentDirection); // 加速または減速後に同じ方向への移動をトリガー
-            }
+        currentSpeedMultiplier *= multiplier;
+        currentSpeedMultiplier = Math.max(0.1, Math.min(maxSpeed, currentSpeedMultiplier));
+        console.log('Current Speed Multiplier:', currentSpeedMultiplier);
+        if (currentDirection !== '') {
+            move(currentDirection); // 加速または減速後に同じ方向への移動をトリガー
         }
+    }
 
-        var ros = new ROSLIB.Ros({
-            url: 'ws://10.0.0.5:9090'
+    var ros = new ROSLIB.Ros({
+        url: 'ws://10.0.0.5:9090'
+    });
+
+    var cmdVel = new ROSLIB.Topic({
+        ros: ros,
+        name: '/cmd_vel',
+        messageType: 'geometry_msgs/Twist'
+    });
+
+    function move(direction) {
+        var twist = new ROSLIB.Message({
+            linear: { x: 0, y: 0, z: 0 },
+            angular: { x: 0, y: 0, z: 0 }
         });
 
-        var cmdVel = new ROSLIB.Topic({
-            ros: ros,
-            name: '/cmd_vel',
-            messageType: 'geometry_msgs/Twist'
+        currentDirection = direction; // 現在の方向を更新
+
+        switch(direction) {
+            case 'left':
+                twist.angular.z = 0.9;
+                break;
+            case 'forward':
+                twist.linear.x = 0.5;
+                break;
+            case 'backward':
+                twist.linear.x = -0.5;
+                break;
+            case 'right':
+                twist.angular.z = -0.9;
+                break;
+            case 'stop':
+                // Values are already set to 0
+                currentSpeedMultiplier = 1;
+                currentDirection = '';
+                break;
+        }
+        cmdVel.publish(twist);
+    }
+
+    var recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+    recognition.lang = 'ja-JP';
+    recognition.interimResults = false;
+    recognition.continuous = true;
+
+    document.getElementById('startButton').onclick = function() {
+        recognition.start();
+        this.disabled = true;
+        document.getElementById('stopButton').disabled = false;
+    };
+
+    document.getElementById('stopButton').onclick = function() {
+        recognition.stop();
+        this.disabled = true;
+        document.getElementById('startButton').disabled = false;
+    };
+
+    recognition.onresult = function(event) {
+        var last = event.results.length - 1;
+        var command = event.results[last][0].transcript.trim();
+        document.getElementById('resultText').textContent = command;
+
+        var twist = new ROSLIB.Message({
+            linear: { x: 0, y: 0, z: 0 },
+            angular: { x: 0, y: 0, z: 0 }
         });
 
-        function move(direction) {
-            var twist = new ROSLIB.Message({
-                linear: { x: 0, y: 0, z: 0 },
-                angular: { x: 0, y: 0, z: 0 }
-            });
-
-            currentDirection = direction; // 現在の方向を更新
-
-            switch(direction) {
-                case 'left':
-                    twist.angular.z = 0.9;
-                    break;
-                case 'forward':
-                    twist.linear.x = 0.5;
-                    break;
-                case 'backward':
-                    twist.linear.x = -0.5;
-                    break;
-                case 'right':
-                    twist.angular.z = -0.9;
-                    break;
-                case 'stop':
-                    // Values are already set to 0
-                    currentSpeedMultiplier = 1;
-                    currentDirection = '';
-                    break;
-            }
-
-            cmdVel.publish(twist);
+        switch(command) {
+            case '左', 'ひだり', '左向け':
+                twist.angular.z = 0.7 * currentSpeedMultiplier;
+                break;
+            case 'go', 'ゴー', '行け', 'いけ', 'すすめ', '進め':
+                twist.linear.x = 0.3 * currentSpeedMultiplier;
+                break;
+            case 'バック', 'back', 'buck', 'さがれ', '下がれ':
+                twist.linear.x = -0.3 * currentSpeedMultiplier;
+                break;
+            case '右', 'みぎ', '右向け':
+                twist.angular.z = -0.7 * currentSpeedMultiplier;
+                break;
+            case 'stop', 'とまれ', '止まれ', 'ストップ':
+                // Values are already set to 0
+                currentSpeedMultiplier = 1;
+                break;
         }
+        cmdVel.publish(twist);
+    };
 
-        var recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-        recognition.lang = 'ja-JP';
-        recognition.interimResults = false;
-        recognition.continuous = true;
+    recognition.onerror = function(event) {
+        console.log('Speech recognition error detected: ' + event.error);
+    };
 
-        document.getElementById('startButton').onclick = function() {
-            recognition.start();
-            this.disabled = true;
-            document.getElementById('stopButton').disabled = false;
-        };
-
-        document.getElementById('stopButton').onclick = function() {
-            recognition.stop();
-            this.disabled = true;
-            document.getElementById('startButton').disabled = false;
-        };
-
-        recognition.onresult = function(event) {
-            var last = event.results.length - 1;
-            var command = event.results[last][0].transcript.trim();
-            document.getElementById('resultText').textContent = command;
-
-            var twist = new ROSLIB.Message({
-                linear: { x: 0, y: 0, z: 0 },
-                angular: { x: 0, y: 0, z: 0 }
-            });
-
-            switch(command) {
-                case '左', 'ひだり', '左向け':
-                    twist.angular.z = 0.7 * currentSpeedMultiplier;
-                    break;
-                case 'go', 'ゴー', '行け', 'いけ', 'すすめ', '進め':
-                    twist.linear.x = 0.3 * currentSpeedMultiplier;
-                    break;
-                case 'バック', 'back', 'buck', 'さがれ', '下がれ':
-                    twist.linear.x = -0.3 * currentSpeedMultiplier;
-                    break;
-                case '右', 'みぎ', '右向け':
-                    twist.angular.z = -0.7 * currentSpeedMultiplier;
-                    break;
-                case 'stop', 'とまれ', '止まれ', 'ストップ':
-                    // Values are already set to 0
-                    currentSpeedMultiplier = 1;
-                    break;
-            }
-            cmdVel.publish(twist);
-        };
-
-        recognition.onerror = function(event) {
-            console.log('Speech recognition error detected: ' + event.error);
-        };
-
-        recognition.onend = function() {
-            console.log('Speech recognition service disconnected');
-        };
+    recognition.onend = function() {
+        console.log('Speech recognition service disconnected');
+    };
                 
-        ros.on('connection', function() {
-            document.getElementById("status").innerHTML = "successful!";
-            console.log('Connected to websocket server.');
-        });
+    ros.on('connection', function() {
+        document.getElementById("status").innerHTML = "successful!";
+        console.log('Connected to websocket server.');
+    });
 
-        var map = new ROSLIB.Topic({
-            ros: ros,
-            name: '/map',
-            messageType: 'nav_msgs/msg/OccupancyGrid'
-        });
+    var map = new ROSLIB.Topic({
+        ros: ros,
+        name: '/map',
+        messageType: 'nav_msgs/msg/OccupancyGrid'
+    });
 
-        map.subscribe(function(message) {
-            // ここで2Dマップデータを受け取り、処理する
-            console.log('Received map data');
-            // 2Dマップデータを表示する処理
-            var canvas = document.getElementById('yourMapElementId');
-            if (!canvas) {
-                canvas = document.createElement('canvas');
-                canvas.id = 'yourMapElementId';
-                document.getElementById('mapContainer').appendChild(canvas);
-            }
-            var ctx = canvas.getContext('2d');
+    map.subscribe(function(message) {
+        // ここで2Dマップデータを受け取り、処理する
+        console.log('Received map data');
+        // 2Dマップデータを表示する処理
+        var canvas = document.getElementById('yourMapElementId');
+        if (!canvas) {
+            canvas = document.createElement('canvas');
+            canvas.id = 'yourMapElementId';
+            document.getElementById('mapContainer').appendChild(canvas);
+        }
+        var ctx = canvas.getContext('2d');
 
-            // canvasのサイズと描画スケールの設定
-            canvas.width = message.info.width;
-            canvas.height = message.info.height;
+        // canvasのサイズと描画スケールの設定
+        canvas.width = message.info.width;
+        canvas.height = message.info.height;
 
-            var imageData = ctx.createImageData(canvas.width, canvas.height);
-            var data = imageData.data;
+        var imageData = ctx.createImageData(canvas.width, canvas.height);
+        var data = imageData.data;
 
-            // OccupancyGridデータを画像データに変換
-            for (var i = 0; i < message.info.width * message.info.height; i++) {
-                var value = message.data[i]; // OccupancyGridデータは-1（未知）から100（完全に占有）までの値を取る
-                var color = value < 0 ? 128 : 255 - (value * 255 / 100); // 未知をグレー、それ以外を白黒で表現
-                data[4*i] = color;    // R
-                data[4*i+1] = color;  // G
-                data[4*i+2] = color;  // B
-                data[4*i+3] = 255;    // A
-            }
-
-            // 画像データをCanvasに描画
-            ctx.putImageData(imageData, 0, 0);
-
-        });
-
-        var tfClient = new ROSLIB.TFClient({
-            ros : ros,
-            fixedFrame : '/map',
-            angularThres : 0.01,
-            transThres : 0.01,
-            rate : 10.0
-        });
-
-        tfClient.subscribe('/base_link', function(tf) {
-          // ロボットの位置(tf.translation)と向き(tf.rotation)を取得
-          var x = tf.translation.x;
-          var y = tf.translation.y;
-          var rotation = getRotationFromQuaternion(tf.rotation);
-
-          // ロボットの位置と向きに基づいてCanvas上に描画する処理を記述
-          updateRobotPositionAndOrientation(x, y, rotation);
-        });
-
-        function getRotationFromQuaternion(quaternion) {
-            var w = quaternion.w;
-            var x = quaternion.x;
-            var y = quaternion.y;
-            var z = quaternion.z;
-
-            // Z軸周りの回転角度をラジアンで計算
-            var angleRadians = 2 * Math.atan2(y, w);
-            // ラジアンを度数法に変換
-            var angleDegrees = angleRadians * (180 / Math.PI);
-
-            return angleDegrees;
+        // OccupancyGridデータを画像データに変換
+        for (var i = 0; i < message.info.width * message.info.height; i++) {
+            var value = message.data[i]; // OccupancyGridデータは-1（未知）から100（完全に占有）までの値を取る
+            var color = value < 0 ? 128 : 255 - (value * 255 / 100); // 未知をグレー、それ以外を白黒で表現
+            data[4*i] = color;    // R
+            data[4*i+1] = color;  // G
+            data[4*i+2] = color;  // B
+            data[4*i+3] = 255;    // A
         }
 
+        // 画像データをCanvasに描画
+        ctx.putImageData(imageData, 0, 0);
 
-        function updateRobotPositionAndOrientation(x, y, theta) {
-            var robotImg = document.getElementById("robotImage");
-            var canvas = document.getElementById("mapCanvas");
+    });
 
-           // マップ上のロボットの位置を計算（ここでは例として単純化しています）
-           var posX = x + canvas.offsetLeft;
-           var posY = y + canvas.offsetTop;
+    var tfClient = new ROSLIB.TFClient({
+        ros : ros,
+        fixedFrame : '/map',
+        angularThres : 0.01,
+        transThres : 0.01,
+        rate : 10.0
+    });
 
-            // ロボット画像の位置を更新
-            robotImg.style.left = posX + 'px';
-            robotImg.style.top = posY + 'px';
+    tfClient.subscribe('/base_link', function(tf) {
+        // ロボットの位置(tf.translation)と向き(tf.rotation)を取得
+        var x = tf.translation.x;
+        var y = tf.translation.y;
+        var rotation = getRotationFromQuaternion(tf.rotation);
 
-            // ロボット画像の回転を更新（回転の中心を画像の中心に設定）
-            robotImg.style.transform = 'rotate(' + theta + 'deg)';
-        }
+        // ロボットの位置と向きに基づいてCanvas上に描画する処理を記述
+        updateRobotPositionAndOrientation(x, y, rotation);
+    });
+
+    function getRotationFromQuaternion(quaternion) {
+        var w = quaternion.w;
+        var x = quaternion.x;
+        var y = quaternion.y;
+        var z = quaternion.z;
+
+        // Z軸周りの回転角度をラジアンで計算
+        var angleRadians = 2 * Math.atan2(y, w);
+        // ラジアンを度数法に変換
+        var angleDegrees = angleRadians * (180 / Math.PI);
+
+        return angleDegrees;
+    }
 
 
-        var listener = new ROSLIB.Topic({
-            ros: ros,
-            name: '/camera/image/compressed',
-            messageType: 'sensor_msgs/msg/CompressedImage'
+    function updateRobotPositionAndOrientation(x, y, theta) {
+        var robotImg = document.getElementById("robotImage");
+        var canvas = document.getElementById("mapCanvas");
+
+        // マップ上のロボットの位置を計算（ここでは例として単純化しています）
+        var posX = x + canvas.offsetLeft;
+        var posY = y + canvas.offsetTop;
+
+        // ロボット画像の位置を更新
+        robotImg.style.left = posX + 'px';
+        robotImg.style.top = posY + 'px';
+
+        // ロボット画像の回転を更新（回転の中心を画像の中心に設定）
+        robotImg.style.transform = 'rotate(' + theta + 'deg)';
+    }
+
+
+    var listener = new ROSLIB.Topic({
+        ros: ros,
+        name: '/camera/image/compressed',
+        messageType: 'sensor_msgs/msg/CompressedImage'
+    });
+
+    listener.subscribe(function(message) {
+        // ここで画像データを受け取り、処理する
+        console.log('Received image data');
+        // 画像データを表示する処理
+        var data = 'data:image/jpeg;base64,' + message.data; // 画像データを設定
+        document.getElementById('yourImageElementId').setAttribute('src', data); // 画像を表示する要素を取得
+    });
+
+    function toggleAudio() {
+        audioEnabled = !audioEnabled;
+        document.getElementById('audioToggle').textContent = audioEnabled ? '音声出力オフ' : '音声出力オン';
+
+        // ROSLIBを使用して音声出力の状態をJetsonに送信
+        var audioCmd = new ROSLIB.Message({
+            data: audioEnabled
         });
+        audioControlTopic.publish(audioCmd);
+    }
 
-        listener.subscribe(function(message) {
-            // ここで画像データを受け取り、処理する
-            console.log('Received image data');
-            // 画像データを表示する処理
-            var data = 'data:image/jpeg;base64,' + message.data; // 画像データを設定
-            document.getElementById('yourImageElementId').setAttribute('src', data); // 画像を表示する要素を取得
-        });
+// ROSLIBを使ったTopicのセットアップ
+var audioControlTopic = new ROSLIB.Topic({
+    ros: ros,
+    name: '/audio_control',
+    messageType: 'std_msgs/Bool'
+});
     </script>
 </body>
 </html>
