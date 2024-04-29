@@ -64,6 +64,23 @@
         #startButton:hover, #stopButton:hover {
             background-color: #ffe0c7; /* ホバー時の青色 */
         }
+        #joystick {
+            width: 200px;
+            height: 200px;
+            background-color: #ccc;
+            border-radius: 50%;
+            position: relative;
+            margin: 20px auto;
+        }
+        #handle {
+            width: 50px;
+            height: 50px;
+            background-color: #888;
+            border-radius: 50%;
+            position: absolute;
+            top: 75px; /* 中央の調整 */
+            left: 75px; /* 中央の調整 */
+        }
     </style>
 </head>
 <body>
@@ -86,8 +103,13 @@
         <br><br>
         <div>認識結果: <span id="resultText"></span></div>
     </div>
+    <hr>
     <div>
         <button id="audioToggle" onclick="toggleAudio()">音声出力オン/オフ</button>
+    </div>
+    <hr>
+    <div id="joystick">
+        <div id="handle"></div>
     </div>
     <hr>
     <!--
@@ -217,6 +239,62 @@
         document.getElementById("status").innerHTML = "successful!";
         console.log('Connected to websocket server.');
     });
+
+    //Joystick
+    var joystick = document.getElementById('joystick');
+    var handle = document.getElementById('handle');
+    var maxRadius = joystick.offsetWidth / 2;
+    var center = maxRadius - handle.offsetWidth / 2;
+
+    joystick.addEventListener('mousedown', function(event) {
+        startControl(event);
+        document.addEventListener('mousemove', moveControl);
+        document.addEventListener('mouseup', stopControl);
+    });
+
+    function startControl(event) {
+        updatePosition(event.clientX, event.clientY);
+    }
+
+    function moveControl(event) {
+        updatePosition(event.clientX, event.clientY);
+    }
+
+    function stopControl(event) {
+        handle.style.top = center + 'px';
+        handle.style.left = center + 'px';
+        cmdVel.publish(new ROSLIB.Message({
+            linear: {x: 0, y: 0, z: 0},
+            angular: {x: 0, y: 0, z: 0}
+        }));
+        document.removeEventListener('mousemove', moveControl);
+        document.removeEventListener('mouseup', stopControl);
+    }
+
+    function updatePosition(clientX, clientY) {
+        var rect = joystick.getBoundingClientRect();
+        var dx = clientX - (rect.left + maxRadius);
+        var dy = clientY - (rect.top + maxRadius);
+        var distance = Math.sqrt(dx * dx + dy * dy);
+        var angle = Math.atan2(dy, dx);
+
+        if (distance > maxRadius) {
+            dx = Math.cos(angle) * maxRadius;
+            dy = Math.sin(angle) * maxRadius;
+            distance = maxRadius;
+        }
+
+        handle.style.left = (center + dx) + 'px';
+        handle.style.top = (center - dy) + 'px';
+
+        var linear_x = dy / maxRadius;
+        var angular_z = -dx / maxRadius;
+
+        cmdVel.publish(new ROSLIB.Message({
+            linear: {x: linear_x, y: 0, z: 0},
+            angular: {x: 0, y: 0, z: angular_z}
+        }));
+    }
 
     var map = new ROSLIB.Topic({
         ros: ros,
