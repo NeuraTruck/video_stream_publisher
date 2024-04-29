@@ -65,7 +65,6 @@
             background-color: #ffe0c7; /* ホバー時の青色 */
         }
         #joystick {
-            display: none; /* 初期状態では非表示 */
             width: 200px;
             height: 200px;
             background-color: #ccc;
@@ -79,8 +78,9 @@
             background-color: #888;
             border-radius: 50%;
             position: absolute;
-            top: 75px; /* 中央の調整 */
-            left: 75px; /* 中央の調整 */
+            top: 50%; /* 中央の調整 */
+            left: 50%; /* 中央の調整 */
+            transform: translate(-50%, -50%); /* 中心からのオフセットを補正 */
         }
     </style>
 </head>
@@ -110,8 +110,15 @@
     </div>
     <hr>
     <button id="toggleManualControl">手動操縦オン/オフ</button>
-    <div id="joystick">
-        <div id="handle"></div>
+    <div id="joystickContainer" style="display: none; position: relative; width: 300px; height: 300px;">
+        <div id="joystick" style="position: absolute; width: 100%; height: 100%; background-color: #EEE;"></div>
+        <div id="handle" style="position: absolute; width: 50px; height: 50px; background-color: #333; border-radius: 50%;"></div>
+    </div>
+    <hr>
+    <hr>
+    <hr>
+    <div>
+        Linear X: <span id="linearXValue">0</span>, Angular Z: <span id="angularZValue">0</span>
     </div>
     <hr>
     <!--
@@ -245,25 +252,34 @@
     //Joystick
 
     var manualControlEnabled = false; // 手動操縦モードの状態
+    var maxRadius, center;
 
     document.getElementById('toggleManualControl').addEventListener('click', function() {
         manualControlEnabled = !manualControlEnabled; // 状態を切り替える
-        document.getElementById('joystick').style.display = manualControlEnabled ? 'block' : 'none'; // 表示の切り替え
+        document.getElementById('joystickContainer').style.display = manualControlEnabled ? 'block' : 'none'; // 表示の切り替え
+        if (manualControlEnabled) {
+            // ジョイスティックが表示されたらサイズを計算
+            maxRadius = joystick.offsetWidth / 2;
+            center = maxRadius - handle.offsetWidth / 2;
+            handle.style.left = center + 'px'; // 初期位置を中心に設定
+            handle.style.top = center + 'px'; // 初期位置を中心に設定
+        }
     });
-        
+
     var joystick = document.getElementById('joystick');
     var handle = document.getElementById('handle');
     var maxRadius = joystick.offsetWidth / 2;
     var center = maxRadius - handle.offsetWidth / 2;
 
     joystick.addEventListener('mousedown', function(event) {
+        if (!manualControlEnabled) return;
         startControl(event);
         document.addEventListener('mousemove', moveControl);
         document.addEventListener('mouseup', stopControl);
     });
 
     function startControl(event) {
-        updatePosition(event.clientX, event.clientY);
+        moveControl(event);
     }
 
     function moveControl(event) {
@@ -291,19 +307,24 @@
         if (distance > maxRadius) {
             dx = Math.cos(angle) * maxRadius;
             dy = Math.sin(angle) * maxRadius;
-            distance = maxRadius;
         }
 
-        handle.style.left = (center + dx) + 'px';
-        handle.style.top = (center - dy) + 'px';
+        handle.style.left = (center + dx) + 'px'; // ピクセル値で位置調整
+        handle.style.top = (center - dy) + 'px'; // ピクセル値で位置調整
 
-        var linear_x = dy / maxRadius;
+        var linear_x = -dy / maxRadius;
         var angular_z = -dx / maxRadius;
+        updateSpeedDisplay(linear_x, angular_z);
 
         cmdVel.publish(new ROSLIB.Message({
             linear: {x: linear_x, y: 0, z: 0},
             angular: {x: 0, y: 0, z: angular_z}
         }));
+    }
+
+    function updateSpeedDisplay(linear, angular) {
+            document.getElementById('linearXValue').textContent = linear.toFixed(2);
+            document.getElementById('angularZValue').textContent = angular.toFixed(2);
     }
 
     var map = new ROSLIB.Topic({
