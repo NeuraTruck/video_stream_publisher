@@ -64,13 +64,16 @@
         #startButton:hover, #stopButton:hover {
             background-color: #ffe0c7; /* ホバー時の青色 */
         }
+        #joystickContainer {
+            margin: 20px auto;
+        }
         #joystick {
             width: 200px;
             height: 200px;
             background-color: #ccc;
             border-radius: 50%;
             position: relative;
-            margin: 20px auto;
+            /*margin: 20px auto;*/
         }
         #handle {
             width: 50px;
@@ -80,7 +83,7 @@
             position: absolute;
             top: 50%; /* 中央の調整 */
             left: 50%; /* 中央の調整 */
-            transform: translate(-50%, -50%); /* 中心からのオフセットを補正 */
+            /*transform: translate(-50%, -50%); /* 中心からのオフセットを補正 */
         }
     </style>
 </head>
@@ -310,7 +313,7 @@
         }
 
         handle.style.left = (center + dx) + 'px'; // ピクセル値で位置調整
-        handle.style.top = (center - dy) + 'px'; // ピクセル値で位置調整
+        handle.style.top = (center + dy) + 'px'; // ピクセル値で位置調整
 
         var linear_x = -dy / maxRadius;
         var angular_z = -dx / maxRadius;
